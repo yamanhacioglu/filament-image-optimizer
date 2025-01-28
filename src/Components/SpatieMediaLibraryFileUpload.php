@@ -6,6 +6,8 @@ use Closure;
 use Filament\Forms\Components\FileUpload;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
+use Intervention\Image\Encoders\AutoEncoder;
+use Intervention\Image\ImageManager;
 use Intervention\Image\ImageManagerStatic as InterventionImage;
 use League\Flysystem\UnableToCheckFileExistence;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
@@ -145,7 +147,8 @@ class SpatieMediaLibraryFileUpload extends FileUpload
                 str_contains($file->getMimeType(), 'image') &&
                 ($component->getOptimization() || $component->getResize())
             ) {
-                $image = InterventionImage::make($originalBinaryFile);
+                $manager = ImageManager::gd();
+                $image = $manager->read($originalBinaryFile);
 
                 if ($component->getOptimization()) {
                     $quality = $component->getOptimization() === 'jpeg' ||
@@ -164,12 +167,12 @@ class SpatieMediaLibraryFileUpload extends FileUpload
                         $width = $image->width() - ($image->width() * ($component->getResize() / 100));
                     }
 
-                    $image->resize($width, $height, function ($constraint) {
-                        $constraint->aspectRatio();
-                    });
+                    $image->scaleDown($width, null);
+
+                    $image->cover($width, $height, 'center');
                 }
 
-                $compressedImage = $image->encode();
+                $compressedImage = $image->encode(new AutoEncoder());
 
                 $filename = self::formatFileName($filename, $component->getOptimization());
             }
