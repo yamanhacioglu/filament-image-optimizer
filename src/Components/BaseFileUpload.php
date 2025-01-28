@@ -14,6 +14,8 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
+use Intervention\Image\Encoders\AutoEncoder;
+use Intervention\Image\ImageManager;
 use Intervention\Image\ImageManagerStatic as InterventionImage;
 use League\Flysystem\UnableToCheckFileExistence;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
@@ -207,7 +209,8 @@ class BaseFileUpload extends Field
                 str_contains($file->getMimeType(), 'image') &&
                 ($optimize || $resize)
             ) {
-                $image = InterventionImage::make($file);
+                $manager = ImageManager::gd();
+                $image = $manager->read($file);
 
                 if ($optimize) {
                     $quality = $optimize === 'jpeg' ||
@@ -224,15 +227,14 @@ class BaseFileUpload extends Field
                         $width = $image->width() - ($image->width() * ($resize / 100));
                     }
 
-                    $image->resize($width, $height, function ($constraint) {
-                        $constraint->aspectRatio();
-                    });
+                    $image->scaleDown($width, null);
+                    $image->cover($width, $height, 'center');
                 }
 
                 if ($optimize) {
-                    $compressedImage = $image->encode($optimize, $quality);
+                    $compressedImage = $image->encode(new AutoEncoder(quality: $quality));
                 } else {
-                    $compressedImage = $image->encode();
+                    $compressedImage = $image->encode(new AutoEncoder());
                 }
 
                 $filename = self::formatFileName($filename, $optimize);
